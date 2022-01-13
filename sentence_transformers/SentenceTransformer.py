@@ -101,7 +101,6 @@ class SentenceTransformer(nn.Sequential):
         self._target_device = torch.device(device)
 
         self.smd_hook = smd.Hook.create_from_json_file() if smd_hook else None
-        self.smd_hook.register_hook(self)
 
 
     def encode(self, sentences: Union[str, List[str]],
