@@ -21,6 +21,8 @@ import queue
 import tempfile
 from distutils.dir_util import copy_tree
 
+import smdebug.pytorch as smd
+
 from . import __MODEL_HUB_ORGANIZATION__
 from .evaluation import SentenceEvaluator
 from .util import import_from_string, batch_to_device, fullname, snapshot_download
@@ -39,7 +41,7 @@ class SentenceTransformer(nn.Sequential):
     :param device: Device (like 'cuda' / 'cpu') that should be used for computation. If None, checks if a GPU can be used.
     :param cache_folder: Path to store models
     """
-    def __init__(self, model_name_or_path: Optional[str] = None, modules: Optional[Iterable[nn.Module]] = None, device: Optional[str] = None, cache_folder: Optional[str] = None):
+    def __init__(self, model_name_or_path: Optional[str] = None, modules: Optional[Iterable[nn.Module]] = None, device: Optional[str] = None, cache_folder: Optional[str] = None, smd_hook: Optional[bool] = False):
         self._model_card_vars = {}
         self._model_card_text = None
         self._model_config = {}
@@ -98,6 +100,8 @@ class SentenceTransformer(nn.Sequential):
 
         self._target_device = torch.device(device)
 
+        self.smd_hook = smd.Hook.create_from_json_file() if smd_hook else None
+        self.smd_hook.register_hook(self)
 
 
     def encode(self, sentences: Union[str, List[str]],
@@ -124,6 +128,7 @@ class SentenceTransformer(nn.Sequential):
            By default, a list of tensors is returned. If convert_to_tensor, a stacked tensor is returned. If convert_to_numpy, a numpy matrix is returned.
         """
         self.eval()
+
         if show_progress_bar is None:
             show_progress_bar = (logger.getEffectiveLevel()==logging.INFO or logger.getEffectiveLevel()==logging.DEBUG)
 
@@ -143,6 +148,9 @@ class SentenceTransformer(nn.Sequential):
             device = self._target_device
 
         self.to(device)
+        self.smd_hook.register_hook(self)
+        
+        self.smd_hook.set_mode(smd.modes.EVAL)
 
         all_embeddings = []
         length_sorted_idx = np.argsort([-self._text_length(sen) for sen in sentences])
@@ -622,6 +630,8 @@ class SentenceTransformer(nn.Sequential):
 
         self.to(self._target_device)
 
+        self.smd_hook.register_hook(self)
+
         dataloaders = [dataloader for dataloader, _ in train_objectives]
 
         # Use smart batching
@@ -672,6 +682,9 @@ class SentenceTransformer(nn.Sequential):
                 loss_model.train()
 
             for _ in trange(steps_per_epoch, desc="Iteration", smoothing=0.05, disable=not show_progress_bar):
+
+                self.smd_hook.set_mode(smd.modes.TRAIN)
+
                 for train_idx in range(num_train_objectives):
                     loss_model = loss_models[train_idx]
                     optimizer = optimizers[train_idx]
@@ -716,6 +729,9 @@ class SentenceTransformer(nn.Sequential):
                 global_step += 1
 
                 if evaluation_steps > 0 and training_steps % evaluation_steps == 0:
+
+                    self.smd_hook.set_mode(smd.modes.EVAL)
+
                     self._eval_during_training(evaluator, output_path, save_best_model, epoch, training_steps, callback)
 
                     for loss_model in loss_models:
@@ -725,7 +741,7 @@ class SentenceTransformer(nn.Sequential):
                 if checkpoint_path is not None and checkpoint_save_steps is not None and checkpoint_save_steps > 0 and global_step % checkpoint_save_steps == 0:
                     self._save_checkpoint(checkpoint_path, checkpoint_save_total_limit, global_step)
 
-
+            self.smd_hook.set_mode(smd.modes.EVAL)
             self._eval_during_training(evaluator, output_path, save_best_model, epoch, -1, callback)
 
         if evaluator is None and output_path is not None:   #No evaluator, but output path: save final model version

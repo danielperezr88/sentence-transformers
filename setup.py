@@ -28,14 +28,17 @@ setup(
         'scipy',
         'nltk',
         'sentencepiece',
-        'huggingface-hub'
+        'huggingface-hub',
+        'sagemaker',
+        'sagemaker-training',
+        'smdebug',
     ],
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Science/Research",
         "License :: OSI Approved :: Apache Software License",
         "Programming Language :: Python :: 3.6",
-        "Topic :: Scientific/Engineering :: Artificial Intelligence"
+        "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
     keywords="Transformer Networks BERT XLNet sentence embedding PyTorch NLP deep learning"
 )

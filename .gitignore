@@ -8,6 +8,7 @@ tmp_*.py
 examples/datasets/*/
 sentence_transformers.egg-info
 dist/
+build/
 nr_*/
 /examples/datasets/
 /examples/embeddings/
