@@ -147,9 +147,6 @@ class SentenceTransformer(nn.Sequential):
             device = self._target_device
 
         self.to(device)
-        self.smd_hook.register_hook(self)
-        
-        self.smd_hook.set_mode(smd.modes.EVAL)
 
         all_embeddings = []
         length_sorted_idx = np.argsort([-self._text_length(sen) for sen in sentences])
